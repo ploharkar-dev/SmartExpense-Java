@@ -88,7 +88,7 @@ public class TransactionService {
         userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        return transactionRepository.findByUserId(userId).stream()
+        return transactionRepository.findByUserUserId(userId).stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
@@ -105,7 +105,7 @@ public class TransactionService {
         userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        return transactionRepository.findByUserIdAndTxnDateBetween(userId, startDate, endDate).stream()
+        return transactionRepository.findByUserUserIdAndTxnDateBetween(userId, startDate, endDate).stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
@@ -168,7 +168,7 @@ public class TransactionService {
 
         BigDecimal totalAmount = transactionRepository.getTotalAmountByUser(userId);
         BigDecimal averageAmount = transactionRepository.getAverageAmountByUser(userId);
-        int count = transactionRepository.findByUserId(userId).size();
+        int count = transactionRepository.findByUserUserId(userId).size();
 
         return java.util.Map.of(
                 "totalAmount", totalAmount != null ? totalAmount : BigDecimal.ZERO,

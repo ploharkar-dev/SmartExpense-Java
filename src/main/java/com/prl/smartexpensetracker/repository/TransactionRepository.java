@@ -12,18 +12,45 @@ import java.util.List;
 
 @Repository
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
-    List<Transaction> findByUserId(Long userId);
 
-    List<Transaction> findByUserIdAndTxnDateBetween(Long userId, LocalDate startDate, LocalDate endDate);
+    List<Transaction> findByUserUserId(Long userId);
 
-    List<Transaction> findByUserIdAndCategoryId(Long userId, Long categoryId);
+    List<Transaction> findByUserUserIdAndTxnDateBetween(
+            Long userId,
+            LocalDate startDate,
+            LocalDate endDate
+    );
 
-    @Query("SELECT SUM(t.amount) FROM Transaction t WHERE t.user.userId = :userId AND YEAR(t.txnDate) = :year AND MONTH(t.txnDate) = :month")
-    BigDecimal getTotalAmountByUserAndMonth(@Param("userId") Long userId, @Param("year") int year, @Param("month") int month);
+    // ✅ FIXED HERE
+    List<Transaction> findByUserUserIdAndCategoryCategoryId(
+            Long userId,
+            Long categoryId
+    );
 
-    @Query("SELECT SUM(t.amount) FROM Transaction t WHERE t.user.userId = :userId")
+    @Query("""
+        SELECT SUM(t.amount)
+        FROM Transaction t
+        WHERE t.user.userId = :userId
+        AND YEAR(t.txnDate) = :year
+        AND MONTH(t.txnDate) = :month
+    """)
+    BigDecimal getTotalAmountByUserAndMonth(
+            @Param("userId") Long userId,
+            @Param("year") int year,
+            @Param("month") int month
+    );
+
+    @Query("""
+        SELECT SUM(t.amount)
+        FROM Transaction t
+        WHERE t.user.userId = :userId
+    """)
     BigDecimal getTotalAmountByUser(@Param("userId") Long userId);
 
-    @Query("SELECT AVG(t.amount) FROM Transaction t WHERE t.user.userId = :userId")
+    @Query("""
+        SELECT AVG(t.amount)
+        FROM Transaction t
+        WHERE t.user.userId = :userId
+    """)
     BigDecimal getAverageAmountByUser(@Param("userId") Long userId);
 }

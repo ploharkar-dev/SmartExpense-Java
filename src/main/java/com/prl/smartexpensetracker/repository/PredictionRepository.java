@@ -12,11 +12,11 @@ import java.util.Optional;
 
 @Repository
 public interface PredictionRepository extends JpaRepository<Prediction, Long> {
-    List<Prediction> findByUserId(Long userId);
+    List<Prediction> findByUserUserId(Long userId);
 
-    List<Prediction> findByUserIdOrderByForecastedMonthDesc(Long userId);
+    List<Prediction> findByUserUserIdOrderByForecastedMonthDesc(Long userId);
 
-    Optional<Prediction> findByUserIdAndForecastedMonth(Long userId, YearMonth forecastedMonth);
+    Optional<Prediction> findByUserUserIdAndForecastedMonth(Long userId, YearMonth forecastedMonth);
 
     @Query("SELECT p FROM Prediction p WHERE p.user.userId = :userId ORDER BY p.createdAt DESC LIMIT 1")
     Optional<Prediction> findLatestByUserId(@Param("userId") Long userId);

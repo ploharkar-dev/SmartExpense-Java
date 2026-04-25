@@ -2,7 +2,7 @@ package com.prl.smartexpensetracker.controller;
 
 import com.prl.smartexpensetracker.dto.ReportSummaryDTO;
 import com.prl.smartexpensetracker.service.ReportService;
-import com.itextpdf.text.DocumentException;
+import com.lowagie.text.DocumentException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -33,7 +33,7 @@ public class ReportController {
     }
 
     @GetMapping("/export/pdf")
-    public ResponseEntity<byte[]> exportToPdf(@RequestParam Long userId) throws IOException, DocumentException {
+    public ResponseEntity<byte[]> exportToPdf(@RequestParam Long userId) throws IOException, DocumentException, Exception {
         byte[] pdfFile = reportService.generatePdfReport(userId);
 
         HttpHeaders headers = new HttpHeaders();

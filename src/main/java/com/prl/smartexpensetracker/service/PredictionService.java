@@ -90,7 +90,7 @@ public class PredictionService {
         userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        return predictionRepository.findByUserIdOrderByForecastedMonthDesc(userId).stream()
+        return predictionRepository.findByUserUserIdOrderByForecastedMonthDesc(userId).stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }

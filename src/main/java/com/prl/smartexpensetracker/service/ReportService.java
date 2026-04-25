@@ -7,23 +7,36 @@ import com.prl.smartexpensetracker.exception.ResourceNotFoundException;
 import com.prl.smartexpensetracker.repository.TransactionRepository;
 import com.prl.smartexpensetracker.repository.UserRepository;
 import com.prl.smartexpensetracker.util.BudgetAlertEngine;
-import com.itextpdf.text.*;
-import com.itextpdf.text.pdf.PdfPCell;
-import com.itextpdf.text.pdf.PdfPTable;
-import com.itextpdf.text.pdf.PdfWriter;
+
+import com.lowagie.text.Document;
+import com.lowagie.text.Element;
+import com.lowagie.text.Font;
+import com.lowagie.text.FontFactory;
+import com.lowagie.text.Paragraph;
+import com.lowagie.text.pdf.PdfPCell;
+import com.lowagie.text.pdf.PdfPTable;
+import com.lowagie.text.pdf.PdfWriter;
+
 import lombok.RequiredArgsConstructor;
+
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.CreationHelper;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
 import org.springframework.stereotype.Service;
 
+import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.time.YearMonth;
+import java.math.RoundingMode;
+import java.sql.Timestamp;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -33,22 +46,17 @@ public class ReportService {
     private final UserRepository userRepository;
     private final BudgetAlertEngine budgetAlertEngine;
 
-    /**
-     * Generate Excel report for user transactions.
-     *
-     * @param userId User ID
-     * @return Byte array of Excel file
-     */
     public byte[] generateExcelReport(Long userId) throws IOException {
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        List<Transaction> transactions = transactionRepository.findByUserId(userId);
+        List<Transaction> transactions = transactionRepository.findByUserUserId(userId);
 
         try (Workbook workbook = new XSSFWorkbook()) {
+
             Sheet sheet = workbook.createSheet("Transactions");
 
-            // Create header row
             Row headerRow = sheet.createRow(0);
             headerRow.createCell(0).setCellValue("Transaction ID");
             headerRow.createCell(1).setCellValue("Amount");
@@ -56,20 +64,29 @@ public class ReportService {
             headerRow.createCell(3).setCellValue("Description");
             headerRow.createCell(4).setCellValue("Date");
 
-            // Populate data rows
+            CellStyle dateStyle = workbook.createCellStyle();
+            CreationHelper createHelper = workbook.getCreationHelper();
+            dateStyle.setDataFormat(createHelper.createDataFormat().getFormat("yyyy-mm-dd hh:mm"));
+
             int rowNum = 1;
-            for (Transaction transaction : transactions) {
+            for (Transaction t : transactions) {
                 Row row = sheet.createRow(rowNum++);
-                row.createCell(0).setCellValue(transaction.getTxnId());
-                row.createCell(1).setCellValue(transaction.getAmount().doubleValue());
-                row.createCell(2).setCellValue(transaction.getCategory().getCategoryName());
-                row.createCell(3).setCellValue(transaction.getDescription());
-                row.createCell(4).setCellValue(transaction.getTxnDate().toString());
+
+                row.createCell(0).setCellValue(t.getTxnId());
+                row.createCell(1).setCellValue(t.getAmount().doubleValue());
+                row.createCell(2).setCellValue(t.getCategory().getCategoryName());
+                row.createCell(3).setCellValue(t.getDescription());
+
+                Cell dateCell = row.createCell(4);
+                dateCell.setCellValue(Timestamp.valueOf(t.getTxnDate().atStartOfDay()));
+                dateCell.setCellStyle(dateStyle);
             }
 
-            // Add summary sheet
             Sheet summarySheet = workbook.createSheet("Summary");
-            ReportSummaryDTO summary = getReportSummary(userId, new BigDecimal("10000"));
+
+            BigDecimal monthlyBudget = new BigDecimal("10000");
+
+            ReportSummaryDTO summary = getReportSummary(userId, monthlyBudget);
 
             summarySheet.createRow(0).createCell(0).setCellValue("Total Spending");
             summarySheet.getRow(0).createCell(1).setCellValue(summary.getTotalSpending().doubleValue());
@@ -80,89 +97,84 @@ public class ReportService {
             summarySheet.createRow(2).createCell(0).setCellValue("Transaction Count");
             summarySheet.getRow(2).createCell(1).setCellValue(summary.getTransactionCount());
 
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            workbook.write(outputStream);
-            return outputStream.toByteArray();
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            workbook.write(out);
+
+            return out.toByteArray();
         }
     }
 
-    /**
-     * Generate PDF report for user transactions.
-     *
-     * @param userId User ID
-     * @return Byte array of PDF file
-     */
-    public byte[] generatePdfReport(Long userId) throws DocumentException, IOException {
+    public byte[] generatePdfReport(Long userId) throws Exception {
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        List<Transaction> transactions = transactionRepository.findByUserId(userId);
+        List<Transaction> transactions = transactionRepository.findByUserUserId(userId);
 
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
         Document document = new Document();
-        PdfWriter.getInstance(document, outputStream);
+        PdfWriter.getInstance(document, out);
         document.open();
 
-        // Title
-        Paragraph title = new Paragraph("Expense Report", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18));
+        Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18);
+        Font normalFont = FontFactory.getFont(FontFactory.HELVETICA, 12);
+
+        Paragraph title = new Paragraph("Expense Report", titleFont);
         title.setAlignment(Element.ALIGN_CENTER);
         document.add(title);
 
-        // User Info
-        Paragraph userInfo = new Paragraph("Username: " + user.getUsername(),
-                FontFactory.getFont(FontFactory.HELVETICA, 12));
-        document.add(userInfo);
-
-        // Summary
-        ReportSummaryDTO summary = getReportSummary(userId, new BigDecimal("10000"));
-        document.add(new Paragraph("Total Spending: $" + summary.getTotalSpending(),
-                FontFactory.getFont(FontFactory.HELVETICA, 11)));
-        document.add(new Paragraph("Average Transaction: $" + summary.getAverageTransaction(),
-                FontFactory.getFont(FontFactory.HELVETICA, 11)));
-        document.add(new Paragraph("Transaction Count: " + summary.getTransactionCount(),
-                FontFactory.getFont(FontFactory.HELVETICA, 11)));
+        document.add(new Paragraph("Username: " + user.getUsername(), normalFont));
         document.add(new Paragraph(" "));
 
-        // Transactions Table
+        BigDecimal monthlyBudget = new BigDecimal("10000");
+
+        ReportSummaryDTO summary = getReportSummary(userId, monthlyBudget);
+
+        document.add(new Paragraph("Total Spending: ₹" + summary.getTotalSpending(), normalFont));
+        document.add(new Paragraph("Average Transaction: ₹" + summary.getAverageTransaction(), normalFont));
+        document.add(new Paragraph("Transaction Count: " + summary.getTransactionCount(), normalFont));
+        document.add(new Paragraph(" "));
+
         PdfPTable table = new PdfPTable(5);
         table.setWidthPercentage(100);
 
-        // Header cells
         addTableHeader(table, "Transaction ID");
         addTableHeader(table, "Amount");
         addTableHeader(table, "Category");
         addTableHeader(table, "Description");
         addTableHeader(table, "Date");
 
-        // Data rows
-        for (Transaction transaction : transactions) {
-            table.addCell(String.valueOf(transaction.getTxnId()));
-            table.addCell("$" + transaction.getAmount());
-            table.addCell(transaction.getCategory().getCategoryName());
-            table.addCell(transaction.getDescription() != null ? transaction.getDescription() : "N/A");
-            table.addCell(transaction.getTxnDate().toString());
+        for (Transaction t : transactions) {
+            table.addCell(String.valueOf(t.getTxnId()));
+            table.addCell("₹" + t.getAmount());
+            table.addCell(t.getCategory().getCategoryName());
+            table.addCell(t.getDescription() != null ? t.getDescription() : "N/A");
+            table.addCell(t.getTxnDate().toString());
         }
 
         document.add(table);
         document.close();
 
-        return outputStream.toByteArray();
+        return out.toByteArray();
     }
 
-    /**
-     * Get report summary for a user.
-     *
-     * @param userId        User ID
-     * @param monthlyBudget Monthly budget limit
-     * @return Report summary DTO
-     */
     public ReportSummaryDTO getReportSummary(Long userId, BigDecimal monthlyBudget) {
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        BigDecimal totalSpending = transactionRepository.getTotalAmountByUser(userId);
-        BigDecimal averageTransaction = transactionRepository.getAverageAmountByUser(userId);
-        int transactionCount = transactionRepository.findByUserId(userId).size();
+        List<Transaction> transactions = transactionRepository.findByUserUserId(userId);
+
+        BigDecimal totalSpending = transactions.stream()
+                .map(Transaction::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal averageTransaction = transactions.isEmpty()
+                ? BigDecimal.ZERO
+                : totalSpending.divide(BigDecimal.valueOf(transactions.size()), RoundingMode.HALF_UP);
+
+        int transactionCount = transactions.size();
 
         BigDecimal remainingBudget = budgetAlertEngine.getRemainingBudget(userId, monthlyBudget);
         BigDecimal spendingPercentage = budgetAlertEngine.getSpendingPercentage(userId, monthlyBudget);
@@ -170,8 +182,8 @@ public class ReportService {
         return ReportSummaryDTO.builder()
                 .userId(userId)
                 .username(user.getUsername())
-                .totalSpending(totalSpending != null ? totalSpending : BigDecimal.ZERO)
-                .averageTransaction(averageTransaction != null ? averageTransaction : BigDecimal.ZERO)
+                .totalSpending(totalSpending)
+                .averageTransaction(averageTransaction)
                 .transactionCount(transactionCount)
                 .monthlyBudget(monthlyBudget)
                 .remainingBudget(remainingBudget)
@@ -179,9 +191,9 @@ public class ReportService {
                 .build();
     }
 
-    private void addTableHeader(PdfPTable table, String headerTitle) {
-        PdfPCell header = new PdfPCell(new Phrase(headerTitle));
-        header.setBackgroundColor(BaseColor.LIGHT_GRAY);
+    private void addTableHeader(PdfPTable table, String title) {
+        PdfPCell header = new PdfPCell(new Paragraph(title));
+        header.setBackgroundColor(Color.LIGHT_GRAY);
         header.setBorderWidth(2);
         table.addCell(header);
     }
