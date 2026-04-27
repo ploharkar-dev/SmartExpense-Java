@@ -1,6 +1,7 @@
 package com.prl.smartexpensetracker.service;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -55,12 +56,19 @@ public class AuthService {
         if (userRepository.existsByEmail(registerRequest.getEmail())) {
             throw new InvalidInputException("Email already exists");
         }
+        if (registerRequest.getProperties() == null || registerRequest.getProperties().isEmpty()) {
+            Map<String, String> propertiesMap = new HashMap<>();
+            propertiesMap.put("monthlyBudget", "10000");
+            registerRequest.setProperties(propertiesMap); // important: assign back
+        } else {
+            registerRequest.getProperties().put("monthlyBudget", "10000");
+        }
 
         // Create new user
         User user = User.builder()
                 .username(registerRequest.getUsername())
                 .email(registerRequest.getEmail())
-                .properties(Map.of("monthlyBudget", "10000"))
+                .properties(registerRequest.getProperties())
                 .passwordHash(passwordEncoder.encode(registerRequest.getPassword()))
                 .build();
 
