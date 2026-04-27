@@ -51,6 +51,8 @@ public class TransactionService {
                 .amount(transactionDTO.getAmount())
                 .description(transactionDTO.getDescription())
                 .txnDate(transactionDTO.getTxnDate())
+                .categoryId(transactionDTO.getCategoryId())
+                .categoryName(transactionDTO.getCategoryName())
                 .build();
 
         Transaction savedTransaction = transactionRepository.save(transaction);
@@ -64,6 +66,8 @@ public class TransactionService {
                 .amount(savedTransaction.getAmount())
                 .description(savedTransaction.getDescription())
                 .txnDate(savedTransaction.getTxnDate())
+                .categoryId(savedTransaction.getCategoryId())
+                .categoryName(savedTransaction.getCategoryName())
                 .suggestedCategory(suggestedCategory)
                 .build();
     }
@@ -185,6 +189,8 @@ public class TransactionService {
                 .amount(transaction.getAmount())
                 .description(transaction.getDescription())
                 .txnDate(transaction.getTxnDate())
+                .categoryId(transaction.getCategoryId())
+                .categoryName(transaction.getCategoryName())
                 .build();
     }
     

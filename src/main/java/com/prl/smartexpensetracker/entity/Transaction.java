@@ -37,6 +37,12 @@ public class Transaction {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+    
+    @Column(name = "category_id")
+    private Long categoryId;
+    
+    @Column(name = "category_name")
+    private String categoryName;
 
     @PrePersist
     protected void onCreate() {
